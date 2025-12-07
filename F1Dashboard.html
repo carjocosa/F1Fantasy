@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>F1 Fantasy Dashboard</title>
+    <style>
+        :root {
+            --f1-red: #ff1801;
+            --bg-color: #f3f3f3;
+            --card-bg: #ffffff;
+            --text-main: #15151e;
+            --text-light: #67676d;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-main);
+        }
+
+        .dashboard-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background-color: var(--text-main);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 4px solid var(--f1-red);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; }
+        p.subtitle { margin: 5px 0 0; opacity: 0.8; font-size: 0.9rem; }
+
+        .loading { text-align: center; padding: 40px; font-style: italic; color: var(--text-light); }
+
+        /* Lista de posiciones */
+        .standings-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .driver-row {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            transition: background 0.2s;
+        }
+
+        .driver-row:hover { background-color: #f9f9f9; }
+
+        /* Columnas */
+        .rank {
+            font-size: 1.2rem;
+            font-weight: bold;
+            width: 40px;
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        .rank.top-3 { color: var(--f1-red); font-size: 1.4rem; }
+
+        .info {
+            flex-grow: 1;
+            padding: 0 15px;
+        }
+
+        .team-name {
+            font-weight: 700;
+            font-size: 1rem;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .bar-container {
+            background-color: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .points-bar {
+            height: 100%;
+            background-color: var(--f1-red);
+            border-radius: 4px;
+        }
+
+        .points {
+            font-weight: bold;
+            font-size: 1.1rem;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .driver-row { flex-wrap: wrap; }
+            .info { width: 100%; order: 3; margin-top: 10px; padding: 0; }
+            .rank { order: 1; }
+            .points { order: 2; margin-left: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    <header>
+        <h1>🏆 Tabla de Posiciones</h1>
+        <p class="subtitle">F1 Fantasy League 2025</p>
+    </header>
+
+    <div id="content">
+        <div class="loading">Cargando datos de la carrera... 🏎️</div>
+    </div>
+</div>
+
+<script>
+    // URL de tu CSV publicado en web
+    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSOW-R7T7POV6JUY_PJMWPXtaNeXu10Llb3Z64fbQ7Py43mqasqhSm7ntdSAk3NgQWbPe3hysekPBTi/pub?gid=685114835&single=true&output=csv';
+
+    async function loadData() {
+        try {
+            const response = await fetch(CSV_URL);
+            const data = await response.text();
+            
+            // Procesar el CSV
+            const rows = data.split('\n').slice(1); // Ignoramos la cabecera (fila 1)
+            let players = [];
+
+            rows.forEach(row => {
+                // Separar por comas (ajusta si tu CSV usa punto y coma)
+                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
+                
+                if(cols.length >= 2) {
+                    // Limpieza básica de comillas
+                    const name = cols[0].replace(/"/g, '').trim();
+                    const points = parseFloat(cols[1].replace(/"/g, '').trim());
+
+                    if (name && !isNaN(points)) {
+                        players.push({ name, points });
+                    }
+                }
+            });
+
+            // Ordenar por puntos (Mayor a menor)
+            players.sort((a, b) => b.points - a.points);
+
+            renderDashboard(players);
+
+        } catch (error) {
+            console.error(error);
+            document.getElementById('content').innerHTML = `
+                <div style="padding:20px; color:red; text-align:center;">
+                    Error cargando datos. <br> 
+                    <small>Nota: Si abres este archivo localmente, algunos navegadores bloquean la conexión a Google Sheets por seguridad (CORS).</small>
+                </div>`;
+        }
+    }
+
+    function renderDashboard(players) {
+        const container = document.getElementById('content');
+        if (players.length === 0) {
+            container.innerHTML = '<div class="loading">No se encontraron datos.</div>';
+            return;
+        }
+
+        const maxPoints = players[0].points; // El líder define el 100% de la barra
+        let html = '<ul class="standings-list">';
+
+        players.forEach((player, index) => {
+            const rank = index + 1;
+            const percentage = (player.points / maxPoints) * 100;
+            const topClass = rank <= 3 ? 'top-3' : ''; // Destacar podio
+
+            html += `
+                <li class="driver-row">
+                    <div class="rank ${topClass}">#${rank}</div>
+                    <div class="info">
+                        <span class="team-name">${player.name}</span>
+                        <div class="bar-container">
+                            <div class="points-bar" style="width: ${percentage}%;"></div>
+                        </div>
+                    </div>
+                    <div class="points">${player.points} pts</div>
+                </li>
+            `;
+        });
+
+        html += '</ul>';
+        container.innerHTML = html;
+    }
+
+    // Iniciar carga
+    loadData();
+</script>
+
+</body>
+</html>
