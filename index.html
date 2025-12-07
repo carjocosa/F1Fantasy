@@ -4,17 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>F1 Fantasy Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         :root {
-            --f1-red: #ff1801;
-            --bg-color: #f3f3f3;
+            --f1-red: #e10600;
+            --bg-color: #f8f8f8;
             --card-bg: #ffffff;
-            --text-main: #15151e;
-            --text-light: #67676d;
+            --text-main: #1f1f1f;
+            --text-light: #6e6e6e;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Titillium Web', 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg-color);
             margin: 0;
             padding: 20px;
@@ -22,95 +23,98 @@
         }
 
         .dashboard-container {
-            max-width: 800px;
+            max-width: 900px;
             margin: 0 auto;
             background-color: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
             overflow: hidden;
         }
 
         header {
-            background-color: var(--text-main);
+            background: linear-gradient(135deg, #15151e 0%, #2b2b3d 100%);
             color: white;
-            padding: 20px;
+            padding: 30px 20px;
             text-align: center;
-            border-bottom: 4px solid var(--f1-red);
+            border-bottom: 5px solid var(--f1-red);
+            position: relative;
         }
 
-        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; letter-spacing: 1px; }
-        p.subtitle { margin: 5px 0 0; opacity: 0.8; font-size: 0.9rem; }
+        h1 { margin: 0; font-size: 2rem; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; font-style: italic; }
+        p.subtitle { margin: 10px 0 0; opacity: 0.8; font-size: 1rem; font-weight: 300; }
+        .refresh-btn { margin-top: 15px; cursor: pointer; background: var(--f1-red); border: none; color: white; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 0.8rem; }
+        .refresh-btn:hover { background-color: #c00500; }
 
-        .loading { text-align: center; padding: 40px; font-style: italic; color: var(--text-light); }
+        .loading, .error { text-align: center; padding: 50px; }
+        .error { color: var(--f1-red); }
 
-        /* Lista de posiciones */
-        .standings-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
+        /* Lista */
+        .standings-list { list-style: none; padding: 0; margin: 0; }
 
         .driver-row {
             display: flex;
             align-items: center;
-            padding: 15px 20px;
-            border-bottom: 1px solid #eee;
-            transition: background 0.2s;
+            padding: 18px 25px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .driver-row:hover { background-color: #f9f9f9; }
+        .driver-row:hover {
+            transform: scale(1.01);
+            background-color: #fff;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            z-index: 1;
+            position: relative;
+        }
 
-        /* Columnas */
+        /* Rank */
         .rank {
-            font-size: 1.2rem;
-            font-weight: bold;
-            width: 40px;
-            color: var(--text-light);
+            font-size: 1.5rem;
+            font-weight: 900;
+            width: 50px;
+            color: #ccc;
             text-align: center;
+            font-style: italic;
         }
+        .rank.podium-1 { color: #d4af37; font-size: 2rem; } /* Oro */
+        .rank.podium-2 { color: #c0c0c0; font-size: 1.8rem; } /* Plata */
+        .rank.podium-3 { color: #cd7f32; font-size: 1.6rem; } /* Bronce */
 
-        .rank.top-3 { color: var(--f1-red); font-size: 1.4rem; }
-
-        .info {
-            flex-grow: 1;
-            padding: 0 15px;
+        /* Info */
+        .info { flex-grow: 1; padding: 0 25px; }
+        
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
         }
+        .team-name { font-weight: 700; font-size: 1.1rem; }
+        .points-text { font-weight: 900; font-size: 1.1rem; color: var(--text-main); }
 
-        .team-name {
-            font-weight: 700;
-            font-size: 1rem;
-            display: block;
-            margin-bottom: 5px;
-        }
-
-        .bar-container {
-            background-color: #e0e0e0;
-            height: 8px;
-            border-radius: 4px;
+        .bar-bg {
+            background-color: #eee;
+            height: 10px;
+            border-radius: 5px;
             width: 100%;
             overflow: hidden;
-            display: flex;
         }
 
-        .points-bar {
+        .bar-fill {
             height: 100%;
             background-color: var(--f1-red);
-            border-radius: 4px;
+            border-radius: 5px;
+            width: 0%; /* Animado por JS */
+            transition: width 1s ease-out;
+            background: linear-gradient(90deg, var(--f1-red) 0%, #ff4d4d 100%);
         }
 
-        .points {
-            font-weight: bold;
-            font-size: 1.1rem;
-            min-width: 60px;
-            text-align: right;
-        }
+        /* Footer */
+        .footer { padding: 15px; text-align: center; font-size: 0.8rem; color: #aaa; background: #fcfcfc; }
 
-        /* Responsive */
         @media (max-width: 600px) {
-            .driver-row { flex-wrap: wrap; }
-            .info { width: 100%; order: 3; margin-top: 10px; padding: 0; }
-            .rank { order: 1; }
-            .points { order: 2; margin-left: auto; }
+            .driver-row { flex-direction: column; text-align: center; gap: 10px; }
+            .info { width: 100%; padding: 0; }
+            .team-header { justify-content: center; gap: 10px; }
         }
     </style>
 </head>
@@ -118,83 +122,107 @@
 
 <div class="dashboard-container">
     <header>
-        <h1>🏆 Tabla de Posiciones</h1>
-        <p class="subtitle">F1 Fantasy League 2025</p>
+        <h1>🏎️ Tabla de Posiciones</h1>
+        <p class="subtitle">F1 Fantasy League</p>
+        <button class="refresh-btn" onclick="location.reload()">Actualizar Datos</button>
     </header>
 
     <div id="content">
-        <div class="loading">Cargando datos de la carrera... 🏎️</div>
+        <div class="loading">
+            <h2>Cargando...</h2>
+            <p>Conectando con Google Sheets...</p>
+        </div>
     </div>
+    
+    <div class="footer">Datos en tiempo real (vía Proxy)</div>
 </div>
 
 <script>
-    // URL de tu CSV publicado en web
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSOW-R7T7POV6JUY_PJMWPXtaNeXu10Llb3Z64fbQ7Py43mqasqhSm7ntdSAk3NgQWbPe3hysekPBTi/pub?gid=685114835&single=true&output=csv';
+    // URL original de tu Google Sheet
+    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSOW-R7T7POV6JUY_PJMWPXtaNeXu10Llb3Z64fbQ7Py43mqasqhSm7ntdSAk3NgQWbPe3hysekPBTi/pub?gid=685114835&single=true&output=csv';
+    
+    // Usamos un proxy público (AllOrigins) para evitar el bloqueo CORS al abrir el archivo localmente
+    const PROXY_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(SHEET_URL);
 
-    async function loadData() {
-        try {
-            const response = await fetch(CSV_URL);
-            const data = await response.text();
+    function init() {
+        console.log("Iniciando carga de datos...");
+        
+        Papa.parse(PROXY_URL, {
+            download: true,
+            header: true, // Intenta detectar encabezados automáticamente
+            skipEmptyLines: true,
+            complete: function(results) {
+                console.log("Datos recibidos:", results);
+                processData(results.data);
+            },
+            error: function(err) {
+                console.error("Error PapaParse:", err);
+                showError();
+            }
+        });
+    }
+
+    function processData(data) {
+        // Validación básica: necesitamos encontrar columnas que parezcan "Nombre" y "Puntos"
+        // Si el CSV no tiene encabezados claros, usaremos índices.
+        
+        let players = [];
+
+        data.forEach(row => {
+            // Intentamos obtener valores por nombre de columna o por índice (Object.values)
+            let values = Object.values(row);
             
-            // Procesar el CSV
-            const rows = data.split('\n').slice(1); // Ignoramos la cabecera (fila 1)
-            let players = [];
+            // Asumimos: Columna 0 = Nombre, Columna 1 = Puntos (ajusta esto si cambia tu CSV)
+            let name = values[0];
+            let pointsRaw = values[1];
 
-            rows.forEach(row => {
-                // Separar por comas (ajusta si tu CSV usa punto y coma)
-                const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); 
-                
-                if(cols.length >= 2) {
-                    // Limpieza básica de comillas
-                    const name = cols[0].replace(/"/g, '').trim();
-                    const points = parseFloat(cols[1].replace(/"/g, '').trim());
+            // Limpiar y convertir puntos
+            let points = parseFloat(String(pointsRaw).replace(',', '.')); 
 
-                    if (name && !isNaN(points)) {
-                        players.push({ name, points });
-                    }
-                }
-            });
+            if (name && !isNaN(points)) {
+                players.push({ name: name, points: points });
+            }
+        });
 
-            // Ordenar por puntos (Mayor a menor)
-            players.sort((a, b) => b.points - a.points);
+        // Ordenar de mayor a menor
+        players.sort((a, b) => b.points - a.points);
 
-            renderDashboard(players);
-
-        } catch (error) {
-            console.error(error);
-            document.getElementById('content').innerHTML = `
-                <div style="padding:20px; color:red; text-align:center;">
-                    Error cargando datos. <br> 
-                    <small>Nota: Si abres este archivo localmente, algunos navegadores bloquean la conexión a Google Sheets por seguridad (CORS).</small>
-                </div>`;
-        }
+        renderDashboard(players);
     }
 
     function renderDashboard(players) {
         const container = document.getElementById('content');
+        
         if (players.length === 0) {
-            container.innerHTML = '<div class="loading">No se encontraron datos.</div>';
+            container.innerHTML = '<div class="error">No se encontraron datos legibles en el CSV.</div>';
             return;
         }
 
-        const maxPoints = players[0].points; // El líder define el 100% de la barra
+        const maxPoints = players[0].points; 
         let html = '<ul class="standings-list">';
 
         players.forEach((player, index) => {
             const rank = index + 1;
             const percentage = (player.points / maxPoints) * 100;
-            const topClass = rank <= 3 ? 'top-3' : ''; // Destacar podio
+            
+            // Clases para colores de podio
+            let rankClass = '';
+            if(rank === 1) rankClass = 'podium-1';
+            if(rank === 2) rankClass = 'podium-2';
+            if(rank === 3) rankClass = 'podium-3';
 
             html += `
                 <li class="driver-row">
-                    <div class="rank ${topClass}">#${rank}</div>
+                    <div class="rank ${rankClass}">#${rank}</div>
                     <div class="info">
-                        <span class="team-name">${player.name}</span>
-                        <div class="bar-container">
-                            <div class="points-bar" style="width: ${percentage}%;"></div>
+                        <div class="team-header">
+                            <span class="team-name">${player.name}</span>
+                            <span class="points-text">${player.points} pts</span>
+                        </div>
+                        <div class="bar-bg">
+                            <div class="bar-fill" style="width: ${percentage}%;"></div>
                         </div>
                     </div>
-                    <div class="points">${player.points} pts</div>
                 </li>
             `;
         });
@@ -203,8 +231,17 @@
         container.innerHTML = html;
     }
 
-    // Iniciar carga
-    loadData();
+    function showError() {
+        document.getElementById('content').innerHTML = `
+            <div class="error">
+                <h3>⚠️ Error de Conexión</h3>
+                <p>No se pudo cargar el archivo CSV.</p>
+                <small>Posibles causas: El enlace de Google Sheets cambió, no es público, o el proxy está saturado.</small>
+            </div>`;
+    }
+
+    // Ejecutar
+    init();
 </script>
 
 </body>
